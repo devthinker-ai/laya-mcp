@@ -1,3 +1,0 @@
-[console_scripts]
-laya-http = laya_http_server:main
-laya-mcp = laya_mcp_server:main
