@@ -1,0 +1,346 @@
+{
+  "name": "Local AI Triage (Laya-MLX)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Local AI Triage (Laya-MLX)\n\nOn-device, ~10ms, no cloud.\n\n1. Run the server: `uvx --from laya-mcp laya-http` (listens on `127.0.0.1:8901`)\n2. Edit **Config** node: base URL + your text / question / options\n3. Execute — branches by the model's typed decision\n\nSwap the sample text for `{{ $json.body }}` etc. when wiring real triggers (email, webhook, IMAP).",
+        "height": 340,
+        "width": 420,
+        "color": 4
+      },
+      "id": "note-instructions",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-580, 120]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-100, 260]
+    },
+    {
+      "parameters": {
+        "values": [
+          {
+            "name": "base_url",
+            "value": "http://127.0.0.1:8901",
+            "type": "string"
+          },
+          {
+            "name": "state",
+            "value": "Der Kunde wurde doppelt berechnet, bitte erstatten Sie die Zahlung. Rechnung Nr. 1234, Fällig war der 01.09.",
+            "type": "string"
+          },
+          {
+            "name": "question",
+            "value": "Which team should handle this?",
+            "type": "string"
+          },
+          {
+            "name": "options",
+            "value": "billing,technical,sales",
+            "type": "string"
+          },
+          {
+            "name": "proposition",
+            "value": "This is overdue or urgent.",
+            "type": "string"
+          }
+        ]
+      },
+      "id": "config-set",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [120, 260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.base_url }}/decide",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ state: $json.state, question: $json.question, options: $json.options.split(',') }) }}",
+        "options": {}
+      },
+      "id": "laya-decide",
+      "name": "Laya Decide",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [340, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.base_url }}/is_true",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ state: $json.state, proposition: $json.proposition }) }}",
+        "options": {}
+      },
+      "id": "laya-urgency",
+      "name": "Laya Urgency",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [340, 460]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-billing",
+                    "leftValue": "={{ $json.choice }}",
+                    "rightValue": "billing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "billing"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-technical",
+                    "leftValue": "={{ $json.choice }}",
+                    "rightValue": "technical",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "technical"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-sales",
+                    "leftValue": "={{ $json.choice }}",
+                    "rightValue": "sales",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sales"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-switch",
+      "name": "Route by decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [560, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "rule-urgent",
+              "leftValue": "={{ $json.p_true }}",
+              "rightValue": 0.7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "urgent-if",
+      "name": "Urgent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [560, 460]
+    },
+    {
+      "parameters": {},
+      "id": "noop-billing",
+      "name": "NoOp Billing",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [800, 60]
+    },
+    {
+      "parameters": {},
+      "id": "noop-technical",
+      "name": "NoOp Technical",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [800, 240]
+    },
+    {
+      "parameters": {},
+      "id": "noop-sales",
+      "name": "NoOp Sales",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [800, 420]
+    },
+    {
+      "parameters": {},
+      "id": "noop-escalate",
+      "name": "Escalate",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [800, 540]
+    },
+    {
+      "parameters": {},
+      "id": "noop-normal",
+      "name": "Normal queue",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [800, 720]
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Laya Decide",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Laya Urgency",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Laya Decide": {
+      "main": [
+        [
+          {
+            "node": "Route by decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Laya Urgency": {
+      "main": [
+        [
+          {
+            "node": "Urgent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by decision": {
+      "main": [
+        [
+          {
+            "node": "NoOp Billing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NoOp Technical",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NoOp Sales",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Urgent?": {
+      "main": [
+        [
+          {
+            "node": "Escalate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normal queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

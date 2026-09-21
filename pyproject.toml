@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "laya-mcp"
+version = "0.2.0"
+description = "Laya-MLX as an MCP stdio + plain-HTTP server: on-device typed decisions (choice/score/yes-no) in ~10ms"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Parham Abbasi" }]
+dependencies = ["laya-mlx"]
+
+[project.scripts]
+laya-mcp = "laya_mcp_server:main"
+laya-http = "laya_http_server:main"
+
+[tool.setuptools]
+py-modules = ["laya_mcp_server", "laya_http_server"]

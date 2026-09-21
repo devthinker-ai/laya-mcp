@@ -1,0 +1,2 @@
+laya_http_server
+laya_mcp_server
